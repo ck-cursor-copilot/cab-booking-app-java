@@ -28,7 +28,7 @@ public class DriverController {
     @Operation(summary = "Register as a driver")
     public ResponseEntity<DriverResponse> registerDriver(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody DriverRegistrationRequest request) {
+            @RequestBody DriverRegistrationRequest request) {
         return ResponseEntity.ok(driverService.registerDriver(userDetails.getUsername(), request));
     }
 
@@ -37,7 +37,7 @@ public class DriverController {
     @Operation(summary = "Update driver status")
     public ResponseEntity<DriverResponse> updateStatus(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody DriverStatusRequest request) {
+            @RequestBody DriverStatusRequest request) {
         return ResponseEntity.ok(driverService.updateStatus(userDetails.getUsername(), request));
     }
 
@@ -46,7 +46,7 @@ public class DriverController {
     @Operation(summary = "Update driver location")
     public ResponseEntity<DriverResponse> updateLocation(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody LocationUpdateRequest request) {
+            @RequestBody LocationUpdateRequest request) {
         return ResponseEntity.ok(driverService.updateLocation(userDetails.getUsername(), request));
     }
 

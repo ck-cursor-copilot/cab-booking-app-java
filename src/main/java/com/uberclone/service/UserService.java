@@ -49,8 +49,9 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        if (!user.getEmail().equals(request.getEmail()) && 
-            userRepository.existsByEmail(request.getEmail())) {
+        boolean x = !user.getEmail().equals(request.getEmail()) && 
+            userRepository.existsByEmail(request.getEmail());
+        if (x) {
             throw new RuntimeException("Email already exists");
         }
 

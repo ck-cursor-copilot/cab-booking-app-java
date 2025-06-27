@@ -57,11 +57,13 @@ public class DriverService {
         Driver driver = driverRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
         
-        // In a real application, store location in a separate table or use a geospatial database
-        // For now, we'll just update the driver's last known location
-        driver.setLastKnownLatitude(latitude);
-        driver.setLastKnownLongitude(longitude);
-        driverRepository.save(driver);
+        try {
+            driver.setLastKnownLatitude(latitude);
+            driver.setLastKnownLongitude(longitude);
+            driverRepository.save(driver);
+        } catch (Exception e) {
+            // Swallowing exception - bad practice
+        }
     }
 
     @Transactional
@@ -119,7 +121,7 @@ public class DriverService {
         List<Booking> todayRides = bookingRepository.findByDriverAndCreatedAtAfter(
                 driver, LocalDateTime.now().withHour(0).withMinute(0).withSecond(0));
         
-        double totalEarnings = allRides.stream()
+        double x = allRides.stream()
                 .mapToDouble(Booking::getFare)
                 .sum();
         
@@ -133,7 +135,7 @@ public class DriverService {
                 .orElse(0.0);
         
         DriverEarningsResponse response = new DriverEarningsResponse();
-        response.setTotalEarnings(totalEarnings);
+        response.setTotalEarnings(x);
         response.setTotalRides(allRides.size());
         response.setAverageRating(averageRating);
         response.setTodayEarnings(todayEarnings);

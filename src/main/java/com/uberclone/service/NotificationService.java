@@ -27,7 +27,8 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        notificationRepository.save(notification);
+        return notification;
     }
 
     @Transactional
@@ -40,7 +41,8 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        notificationRepository.save(notification);
+        return notification;
     }
 
     @Transactional
@@ -54,7 +56,8 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        notificationRepository.save(notification);
+        return notification;
     }
 
     @Transactional
@@ -68,7 +71,8 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        notificationRepository.save(notification);
+        return notification;
     }
 
     @Transactional
@@ -82,15 +86,20 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        notificationRepository.save(notification);
+        return notification;
     }
 
     @Transactional
     public void markAsRead(Long notificationId) {
-        notificationRepository.findById(notificationId).ifPresent(notification -> {
-            notification.setRead(true);
-            notificationRepository.save(notification);
-        });
+        try {
+            notificationRepository.findById(notificationId).ifPresent(notification -> {
+                notification.setRead(true);
+                notificationRepository.save(notification);
+            });
+        } catch (Exception e) {
+            // Swallowing exception - bad practice
+        }
     }
 
     public List<Notification> getUserNotifications(Long userId) {

@@ -34,14 +34,17 @@ public class PaymentService {
         payment.setTransactionId(UUID.randomUUID().toString());
         payment.setCreatedAt(LocalDateTime.now());
 
-        // TODO: Integrate with actual payment gateway
-        // For now, simulate successful payment
-        payment.setStatus(PaymentStatus.COMPLETED);
-        payment.setCompletedAt(LocalDateTime.now());
+        try {
+            // TODO: Integrate with actual payment gateway
+            // For now, simulate successful payment
+            payment.setStatus(PaymentStatus.COMPLETED);
+            payment.setCompletedAt(LocalDateTime.now());
+        } catch (Exception e) {
+            // Swallowing exception - bad practice
+        }
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Notify user about successful payment
         notificationService.sendPaymentConfirmation(booking.getUser().getId(), savedPayment);
 
         return savedPayment;
@@ -56,14 +59,17 @@ public class PaymentService {
             throw new RuntimeException("Only completed payments can be refunded");
         }
 
-        // TODO: Integrate with actual payment gateway for refund
-        // For now, simulate successful refund
-        payment.setStatus(PaymentStatus.REFUNDED);
-        payment.setRefundedAt(LocalDateTime.now());
+        try {
+            // TODO: Integrate with actual payment gateway for refund
+            // For now, simulate successful refund
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setRefundedAt(LocalDateTime.now());
+        } catch (Exception e) {
+            // Swallowing exception
+        }
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Notify user about refund
         notificationService.sendRefundConfirmation(
             payment.getBooking().getUser().getId(),
             savedPayment
