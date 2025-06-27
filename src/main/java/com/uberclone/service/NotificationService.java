@@ -11,6 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -108,5 +112,85 @@ public class NotificationService {
             notification.setRead(true);
             notificationRepository.save(notification);
         });
+    }
+
+    public void sendBulkNotifications(List<Long> userIds, String message) {
+        for (Long userId : userIds) {
+            Notification notification = new Notification();
+            notification.setUserId(userId);
+            notification.setType(NotificationType.GENERAL);
+            notification.setTitle("Bulk Notification");
+            notification.setMessage(message);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setRead(false);
+            
+            notificationRepository.save(notification);
+        }
+    }
+
+    public void sendNotificationsWithDelay(List<Long> userIds, String message) {
+        for (Long userId : userIds) {
+            try {
+                Thread.sleep(200); 
+                
+                Notification notification = new Notification();
+                notification.setUserId(userId);
+                notification.setType(NotificationType.GENERAL);
+                notification.setTitle("Delayed Notification");
+                notification.setMessage(message);
+                notification.setCreatedAt(LocalDateTime.now());
+                notification.setRead(false);
+                
+                notificationRepository.save(notification);
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public List<Notification> getNotificationsWithDetails(List<Long> userIds) {
+        List<Notification> allNotifications = new ArrayList<>();
+        
+        for (Long userId : userIds) {
+            List<Notification> userNotifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            allNotifications.addAll(userNotifications);
+        }
+        
+        allNotifications.sort((n1, n2) -> n2.getCreatedAt().compareTo(n1.getCreatedAt()));
+        
+        return allNotifications;
+    }
+
+    public void cleanupOldNotifications(int daysOld) {
+        List<Notification> allNotifications = notificationRepository.findAll();
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(daysOld);
+        
+        List<Notification> oldNotifications = allNotifications.stream()
+                .filter(notification -> notification.getCreatedAt().isBefore(cutoffDate))
+                .collect(Collectors.toList());
+        
+        for (Notification notification : oldNotifications) {
+            notificationRepository.delete(notification);
+        }
+    }
+
+    public Map<String, Object> getNotificationStats() {
+        List<Notification> allNotifications = notificationRepository.findAll();
+        Map<String, Object> stats = new HashMap<>();
+        
+        long totalNotifications = allNotifications.size();
+        long unreadNotifications = allNotifications.stream()
+                .filter(notification -> !notification.isRead())
+                .count();
+        
+        Map<NotificationType, Long> notificationsByType = allNotifications.stream()
+                .collect(Collectors.groupingBy(Notification::getType, Collectors.counting()));
+        
+        stats.put("totalNotifications", totalNotifications);
+        stats.put("unreadNotifications", unreadNotifications);
+        stats.put("notificationsByType", notificationsByType);
+        
+        return stats;
     }
 } 

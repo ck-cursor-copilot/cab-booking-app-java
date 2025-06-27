@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -141,6 +142,63 @@ public class BookingService {
     }
 
     // ... existing methods (cancelBooking, getBookingStatus, getUserBookings) ...
+
+    public List<BookingResponse> getAllBookingsWithDetails() {
+        List<Booking> bookings = bookingRepository.findAll();
+        
+        return bookings.stream()
+                .map(booking -> {
+                    booking.getUser().getName(); // Triggers query for user
+                    if (booking.getDriver() != null) {
+                        booking.getDriver().getUser().getName(); // Triggers query for driver user
+                        booking.getDriver().getCab().getType(); // Triggers query for cab
+                    }
+                    return mapToResponse(booking);
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<String> getBookingAddresses() {
+        List<Booking> bookings = bookingRepository.findAll();
+        List<String> addresses = new ArrayList<>();
+        
+        for (Booking booking : bookings) {
+            addresses.add(new String(booking.getPickup())); // Unnecessary String allocation
+            addresses.add(new String(booking.getDrop())); // Unnecessary String allocation
+        }
+        
+        return addresses;
+    }
+
+    public void processBookingsSynchronously() {
+        List<Booking> bookings = bookingRepository.findAll();
+        
+        for (Booking booking : bookings) {
+            try {
+                Thread.sleep(100); 
+                notificationService.sendBookingRequest(booking.getUser().getId(), booking);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public List<Booking> findDuplicateBookings() {
+        List<Booking> bookings = bookingRepository.findAll();
+        List<Booking> duplicates = new ArrayList<>();
+        
+        for (int i = 0; i < bookings.size(); i++) {
+            for (int j = i + 1; j < bookings.size(); j++) {
+                if (bookings.get(i).getPickup().equals(bookings.get(j).getPickup()) &&
+                    bookings.get(i).getDrop().equals(bookings.get(j).getDrop())) {
+                    duplicates.add(bookings.get(i));
+                    duplicates.add(bookings.get(j));
+                }
+            }
+        }
+        
+        return duplicates;
+    }
 
     private double calculateFare(String pickup, String drop) {
         // Mock implementation - in real app, would use distance matrix API
