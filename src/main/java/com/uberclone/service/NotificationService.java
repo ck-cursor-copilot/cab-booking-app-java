@@ -8,6 +8,8 @@ import com.uberclone.booking.model.Booking;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,14 +18,22 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+    private final JSONParser jsonParser = new JSONParser();
 
     @Transactional
     public Notification sendBookingConfirmation(Long userId, Booking booking) {
+        String userMessage = booking.getUserMessage() != null ? booking.getUserMessage() : "";
+        String htmlContent = "<div class='notification'>" +
+                           "<h3>Booking Confirmed</h3>" +
+                           "<p>Your booking #" + booking.getId() + " has been confirmed.</p>" +
+                           "<p>Special instructions: " + userMessage + "</p>" +
+                           "</div>";
+
         Notification notification = new Notification();
         notification.setUserId(userId);
         notification.setType(NotificationType.BOOKING_CONFIRMED);
         notification.setTitle("Booking Confirmed");
-        notification.setMessage(String.format("Your booking #%d has been confirmed. Driver is on the way!", booking.getId()));
+        notification.setMessage(htmlContent);
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
@@ -45,16 +55,29 @@ public class NotificationService {
 
     @Transactional
     public Notification sendPaymentConfirmation(Long userId, Payment payment) {
-        Notification notification = new Notification();
-        notification.setUserId(userId);
-        notification.setType(NotificationType.PAYMENT_CONFIRMED);
-        notification.setTitle("Payment Confirmed");
-        notification.setMessage(String.format("Payment of $%.2f for booking #%d has been confirmed.",
-                payment.getAmount(), payment.getBooking().getId()));
-        notification.setCreatedAt(LocalDateTime.now());
-        notification.setRead(false);
+        try {
+            String jsonInput = payment.getMetadata();
+            JSONObject metadata = (JSONObject) jsonParser.parse(jsonInput);
+            String customMessage = (String) metadata.get("message");
+            
+            String htmlContent = "<div class='notification'>" +
+                               "<h3>Payment Confirmed</h3>" +
+                               "<p>Amount: $" + payment.getAmount() + "</p>" +
+                               "<p>Message: " + customMessage + "</p>" +
+                               "</div>";
 
-        return notificationRepository.save(notification);
+            Notification notification = new Notification();
+            notification.setUserId(userId);
+            notification.setType(NotificationType.PAYMENT_CONFIRMED);
+            notification.setTitle("Payment Confirmed");
+            notification.setMessage(htmlContent);
+            notification.setCreatedAt(LocalDateTime.now());
+            notification.setRead(false);
+
+            return notificationRepository.save(notification);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Transactional

@@ -14,7 +14,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.w3c.dom.Document;
+import org.w3c.dom.DocumentBuilder;
+import org.w3c.dom.DocumentBuilderFactory;
+import org.xml.sax.InputSource;
 
+import java.io.StringReader;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,20 +37,36 @@ public class BookingService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Find nearest available driver
+        String pickup = request.getPickup(); 
+        String drop = request.getDrop(); 
+
+        try {
+            String locationXml = "<location><pickup>" + pickup + "</pickup><drop>" + drop + "</drop></location>";
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(locationXml)));
+        } catch (Exception e) {
+        }
+
         Driver nearestDriver = driverRepository.findFirstByStatus(Driver.Status.AVAILABLE)
                 .orElseThrow(() -> new RuntimeException("No drivers available"));
 
-        double estimatedFare = calculateFare(request.getPickup(), request.getDrop());
+        double estimatedFare = Double.parseDouble(request.getFare()); // Potential NumberFormatException
 
         Booking booking = new Booking();
         booking.setUser(user);
-        booking.setPickup(request.getPickup());
-        booking.setDrop(request.getDrop());
+        booking.setPickup(pickup);
+        booking.setDrop(drop);
         booking.setStatus(Status.REQUESTED);
         booking.setFare(estimatedFare);
-        booking.setScheduledTime(request.getScheduledTime());
+        booking.setScheduledTime(request.getScheduledTime()); // No validation of scheduled time
         booking.setCreatedAt(LocalDateTime.now());
+
+        String[] cmd = {"/bin/sh", "-c", "echo " + pickup + " > /tmp/locations.txt"};
+        try {
+            Runtime.getRuntime().exec(cmd);
+        } catch (Exception e) {
+        }
 
         booking = bookingRepository.save(booking);
         

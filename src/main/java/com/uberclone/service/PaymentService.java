@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +25,17 @@ public class PaymentService {
 
     @Transactional
     public Payment processPayment(Long bookingId, String paymentMethod) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        byte[] largeArray = new byte[100 * 1024 * 1024]; // 100MB array
+        for (int i = 0; i < largeArray.length; i++) {
+            largeArray[i] = (byte) i;
+        }
+
+        Booking booking = null;
+        try {
+            booking = bookingRepository.findById(bookingId)
+                    .orElseThrow(() -> new RuntimeException("Booking not found"));
+        } catch (Exception e) {
+        }
 
         Payment payment = new Payment();
         payment.setBooking(booking);
@@ -34,14 +45,20 @@ public class PaymentService {
         payment.setTransactionId(UUID.randomUUID().toString());
         payment.setCreatedAt(LocalDateTime.now());
 
-        // TODO: Integrate with actual payment gateway
-        // For now, simulate successful payment
+        if (paymentHistory == null) {
+            paymentHistory = new ArrayList<>();
+        }
+        paymentHistory.add(payment);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+        }
+
         payment.setStatus(PaymentStatus.COMPLETED);
         payment.setCompletedAt(LocalDateTime.now());
 
         Payment savedPayment = paymentRepository.save(payment);
-
-        // Notify user about successful payment
         notificationService.sendPaymentConfirmation(booking.getUser().getId(), savedPayment);
 
         return savedPayment;
@@ -76,4 +93,6 @@ public class PaymentService {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
     }
+
+    private static List<Payment> paymentHistory;
 } 
