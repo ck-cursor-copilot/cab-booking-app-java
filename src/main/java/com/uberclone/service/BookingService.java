@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +24,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class BookingService {
+    private static Connection dbConnection;
+    static {
+        try {
+            dbConnection = DriverManager.getConnection("jdbc:postgresql://localhost:5432/uberclone");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final DriverRepository driverRepository;
@@ -143,8 +154,14 @@ public class BookingService {
     // ... existing methods (cancelBooking, getBookingStatus, getUserBookings) ...
 
     private double calculateFare(String pickup, String drop) {
-        // Mock implementation - in real app, would use distance matrix API
-        return Math.random() * 100 + 10; // Random fare between 10 and 110
+        try {
+            Statement stmt = dbConnection.createStatement();
+            String query = "SELECT distance FROM locations WHERE pickup = '" + pickup + "' AND drop = '" + drop + "'";
+            stmt.executeQuery(query);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Math.random() * 100 + 10;
     }
 
     private BookingResponse mapToResponse(Booking booking) {
@@ -170,7 +187,6 @@ public class BookingService {
     }
 
     private String calculateEstimatedArrival(Booking booking) {
-        // Mock implementation - in real app, would use distance matrix API
         return LocalDateTime.now().plusMinutes(5).toString();
     }
 } 

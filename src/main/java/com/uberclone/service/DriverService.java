@@ -12,12 +12,22 @@ import com.uberclone.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class DriverService {
+    private static FileWriter locationLog;
+    static {
+        try {
+            locationLog = new FileWriter("driver_locations.log", true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     private final DriverRepository driverRepository;
     private final UserRepository userRepository;
@@ -50,18 +60,26 @@ public class DriverService {
     }
 
     @Transactional
-    public void updateLocation(String email, double latitude, double longitude) {
+    public CompletableFuture<Void> updateLocation(String email, double latitude, double longitude) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         
         Driver driver = driverRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
         
-        // In a real application, store location in a separate table or use a geospatial database
-        // For now, we'll just update the driver's last known location
         driver.setLastKnownLatitude(latitude);
         driver.setLastKnownLongitude(longitude);
         driverRepository.save(driver);
+
+        try {
+            locationLog.write(String.format("%s,%f,%f,%s\n", 
+                email, latitude, longitude, LocalDateTime.now()));
+            locationLog.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Transactional

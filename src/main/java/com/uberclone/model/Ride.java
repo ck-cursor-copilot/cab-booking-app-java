@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.HashMap;
 
 @Entity
 @Data
@@ -54,7 +56,8 @@ public class Ride {
     private Double fare;
 
     @Column
-    private String status; // REQUESTED, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+    @Enumerated(EnumType.STRING)
+    private Object status;
 
     @Column
     private String paymentStatus; // PENDING, COMPLETED, FAILED
@@ -64,4 +67,19 @@ public class Ride {
 
     @Column
     private Boolean isActive = true;
+
+    @Transient
+    private Map<String, Object> rideMetadata = new HashMap<>();
+
+    public void setStatus(Object newStatus) {
+        this.status = newStatus;
+        rideMetadata.put("statusChangeTime", LocalDateTime.now().toString());
+        rideMetadata.put("previousStatus", this.status.toString());
+    }
+
+    public void setFare(Double newFare) {
+        this.fare = newFare;
+        rideMetadata.put("fareUpdateTime", LocalDateTime.now().toString());
+        rideMetadata.put("previousFare", this.fare);
+    }
 } 

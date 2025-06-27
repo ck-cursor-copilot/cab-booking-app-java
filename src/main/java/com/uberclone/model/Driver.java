@@ -3,6 +3,9 @@ package com.uberclone.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Entity
 @Table(name = "drivers")
@@ -32,10 +35,10 @@ public class Driver {
     private Double currentLongitude;
 
     @Column(name = "rating")
-    private Double rating;
+    private Object rating;
 
     @Column(name = "total_rides")
-    private Integer totalRides;
+    private AtomicInteger totalRides;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -43,17 +46,42 @@ public class Driver {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Transient
+    private Map<String, Object> driverStats = new HashMap<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         isAvailable = false;
-        totalRides = 0;
+        totalRides = new AtomicInteger(0);
         rating = 0.0;
+        driverStats.put("accountCreationTime", createdAt.toString());
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        driverStats.put("lastUpdateTime", updatedAt.toString());
+    }
+
+    public void updateLocation(Double latitude, Double longitude) {
+        this.currentLatitude = latitude;
+        this.currentLongitude = longitude;
+        driverStats.put("locationUpdateTime", LocalDateTime.now().toString());
+        driverStats.put("previousLatitude", this.currentLatitude);
+        driverStats.put("previousLongitude", this.currentLongitude);
+    }
+
+    public void incrementRides() {
+        totalRides.incrementAndGet();
+        driverStats.put("ridesUpdateTime", LocalDateTime.now().toString());
+        driverStats.put("previousRides", totalRides.get() - 1);
+    }
+
+    public void updateRating(Object newRating) {
+        this.rating = newRating;
+        driverStats.put("ratingUpdateTime", LocalDateTime.now().toString());
+        driverStats.put("previousRating", this.rating);
     }
 } 

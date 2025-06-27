@@ -9,11 +9,13 @@ import com.uberclone.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class UserService {
+    private static final Map<String, User> userCache = new ConcurrentHashMap<>();
+    private static final List<User> recentlyUpdatedUsers = new ArrayList<>();
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -24,8 +26,10 @@ public class UserService {
     }
 
     public UserProfileResponse getProfile(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        User user = userCache.computeIfAbsent(email, k -> 
+            userRepository.findByEmail(k)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"))
+        );
 
         List<Booking> userBookings = bookingRepository.findByUser(user);
         double averageRating = userBookings.stream()
@@ -57,6 +61,12 @@ public class UserService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         userRepository.save(user);
+        
+        userCache.put(email, user);
+        recentlyUpdatedUsers.add(user);
+        if (recentlyUpdatedUsers.size() > 100) {
+            recentlyUpdatedUsers.remove(0);
+        }
 
         return getProfile(user.getEmail());
     }

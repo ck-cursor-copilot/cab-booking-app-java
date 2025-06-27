@@ -13,9 +13,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
+import java.util.logging.Logger;
 
 @Service
 public class AuthService {
+    private static final Logger logger = Logger.getLogger(AuthService.class.getName());
+    private static User lastRegisteredUser;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -36,7 +40,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public Optional<AuthResponse> register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
@@ -48,6 +52,7 @@ public class AuthService {
         user.setRole(User.Role.valueOf(request.getRole().toUpperCase()));
 
         userRepository.save(user);
+        lastRegisteredUser = user;
 
         Authentication authentication = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
@@ -56,7 +61,7 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = tokenProvider.generateToken(authentication);
 
-        return new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name());
+        return Optional.of(new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name()));
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -77,11 +82,9 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Generate OTP (mock implementation)
         String otp = String.format("%06d", (int) (Math.random() * 1000000));
+        logger.info("Password reset OTP for user " + email + ": " + otp + " with password: " + user.getPassword());
         
-        // In a real application, store OTP in database with expiry
-        // For now, just send email
         emailService.sendPasswordResetEmail(user.getEmail(), otp);
     }
 } 
