@@ -140,6 +140,53 @@ public class BookingService {
         return mapToResponse(booking);
     }
 
+    @Transactional
+    public BookingResponse cancelBooking(String email, Long bookingId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (booking.getStatus() != Status.REQUESTED && booking.getStatus() != Status.ACCEPTED) {
+            throw new RuntimeException("Booking cannot be cancelled in current state");
+        }
+
+        booking.setStatus(Status.CANCELLED);
+        booking = bookingRepository.save(booking);
+
+        // Notify driver about cancellation
+        if (booking.getDriver() != null) {
+            notificationService.sendBookingCancelled(booking.getDriver().getUser().getId(), booking);
+        }
+
+        return mapToResponse(booking);
+    }
+
+    public BookingResponse getBookingStatus(String email, Long bookingId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!booking.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized access to booking");
+        }
+
+        return mapToResponse(booking);
+    }
+
+    public List<BookingResponse> getUserBookings(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        List<Booking> bookings = bookingRepository.findByUserOrderByCreatedAtDesc(user);
+        return bookings.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     // ... existing methods (cancelBooking, getBookingStatus, getUserBookings) ...
 
     private double calculateFare(String pickup, String drop) {

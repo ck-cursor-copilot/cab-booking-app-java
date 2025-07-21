@@ -86,6 +86,46 @@ public class NotificationService {
     }
 
     @Transactional
+    public Notification sendRideStarted(Long userId, Booking booking) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.RIDE_STARTED);
+        notification.setTitle("Ride Started");
+        notification.setMessage(String.format("Your ride for booking #%d has started. Enjoy your journey!", booking.getId()));
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+
+        return notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public Notification sendRideCompleted(Long userId, Booking booking) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.RIDE_COMPLETED);
+        notification.setTitle("Ride Completed");
+        notification.setMessage(String.format("Your ride for booking #%d has been completed. Please rate your experience.", booking.getId()));
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+
+        return notificationRepository.save(notification);
+    }
+
+    @Transactional
+    public Notification sendBookingRequest(Long userId, Booking booking) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.BOOKING_REQUEST);
+        notification.setTitle("New Booking Request");
+        notification.setMessage(String.format("You have a new booking request #%d from %s to %s", 
+                booking.getId(), booking.getPickup(), booking.getDrop()));
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+
+        return notificationRepository.save(notification);
+    }
+
+    @Transactional
     public void markAsRead(Long notificationId) {
         notificationRepository.findById(notificationId).ifPresent(notification -> {
             notification.setRead(true);

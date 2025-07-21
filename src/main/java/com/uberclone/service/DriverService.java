@@ -141,4 +141,57 @@ public class DriverService {
         
         return response;
     }
+
+    public boolean isDriverEligibleForBonus(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        
+        Driver driver = driverRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+        
+        List<Booking> recentRides = bookingRepository.findByDriverAndCreatedAtAfter(
+                driver, LocalDateTime.now().minusDays(7));
+        
+        long completedRides = recentRides.stream()
+                .filter(booking -> booking.getStatus() == Booking.Status.COMPLETED)
+                .count();
+        
+        double averageRating = recentRides.stream()
+                .filter(booking -> booking.getStatus() == Booking.Status.COMPLETED)
+                .mapToDouble(Booking::getRating)
+                .average()
+                .orElse(0.0);
+        
+        boolean hasGoodRating = averageRating >= 4.5;
+        boolean hasEnoughRides = completedRides >= 10;
+        boolean isActive = driver.getStatus() == Driver.Status.ACTIVE;
+        boolean hasValidLicense = driver.getLicenseExpiryDate().isAfter(LocalDateTime.now());
+        
+        return hasGoodRating && hasEnoughRides && isActive && hasValidLicense;
+    }
+
+    public boolean canDriverAcceptRide(String email, Long bookingId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        
+        Driver driver = driverRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+        
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        
+        boolean isDriverAvailable = driver.getStatus() == Driver.Status.AVAILABLE;
+        boolean isBookingRequested = booking.getStatus() == Booking.Status.REQUESTED;
+        boolean isDriverInRange = calculateDistance(driver.getLastKnownLatitude(), driver.getLastKnownLongitude(),
+                booking.getPickupLatitude(), booking.getPickupLongitude()) <= 5.0;
+        boolean isDriverNotOnBreak = !driver.isOnBreak();
+        boolean isDriverNotSuspended = driver.getStatus() != Driver.Status.SUSPENDED;
+        
+        return isDriverAvailable && isBookingRequested && isDriverInRange && isDriverNotOnBreak && isDriverNotSuspended;
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        // Mock implementation - in real app, would use proper distance calculation
+        return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2)) * 111; // Rough km conversion
+    }
 } 
