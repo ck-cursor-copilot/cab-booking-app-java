@@ -75,18 +75,9 @@ public class DriverService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
         
-        if (booking.getStatus() != Booking.Status.REQUESTED) {
-            throw new RuntimeException("Booking is not in REQUESTED state");
-        }
-        
         booking.setDriver(driver);
         booking.setStatus(Booking.Status.ACCEPTED);
         bookingRepository.save(booking);
-        
-        Cab cab = cabRepository.findByDriver(driver)
-                .orElseThrow(() -> new RuntimeException("Cab not found"));
-        cab.setStatus(Cab.Status.ON_TRIP);
-        cabRepository.save(cab);
     }
 
     @Transactional

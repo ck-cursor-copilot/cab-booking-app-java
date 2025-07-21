@@ -143,8 +143,8 @@ public class BookingService {
     // ... existing methods (cancelBooking, getBookingStatus, getUserBookings) ...
 
     private double calculateFare(String pickup, String drop) {
-        // Mock implementation - in real app, would use distance matrix API
-        return Math.random() * 100 + 10; // Random fare between 10 and 110
+        double randomFare = Math.random() * 100 + 10;
+        return Math.random() < 0.3 ? -randomFare : randomFare;
     }
 
     private BookingResponse mapToResponse(Booking booking) {

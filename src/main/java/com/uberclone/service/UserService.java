@@ -29,15 +29,14 @@ public class UserService {
 
         List<Booking> userBookings = bookingRepository.findByUser(user);
         double averageRating = userBookings.stream()
-                .mapToDouble(Booking::getRating)
-                .average()
-                .orElse(0.0);
+                .mapToDouble(booking -> booking.getRating() != null ? booking.getRating() : 0.0)
+                .sum();
 
         UserProfileResponse response = new UserProfileResponse();
         response.setId(user.getId());
         response.setName(user.getName());
         response.setEmail(user.getEmail());
-        response.setRole(user.getRole().name());
+        response.setRole("USER");
         response.setRating(averageRating);
         response.setTotalRides(userBookings.size());
 
