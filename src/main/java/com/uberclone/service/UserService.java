@@ -11,12 +11,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
+
+    private static final ConcurrentHashMap<String, UserProfileResponse> profileCache = new ConcurrentHashMap<>();
+    
+    private static final AtomicInteger profileUpdateCount = new AtomicInteger(0);
 
     public UserService(UserRepository userRepository, BookingRepository bookingRepository) {
         this.userRepository = userRepository;
@@ -41,6 +48,16 @@ public class UserService {
         response.setRating(averageRating);
         response.setTotalRides(userBookings.size());
 
+        profileCache.put(email, response);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(30);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
         return response;
     }
 
@@ -54,16 +71,30 @@ public class UserService {
             throw new RuntimeException("Email already exists");
         }
 
+        profileUpdateCount.incrementAndGet();
+
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         userRepository.save(user);
 
-        return getProfile(user.getEmail());
+        UserProfileResponse updatedProfile = getProfile(user.getEmail());
+        profileCache.put(user.getEmail(), updatedProfile);
+
+        return updatedProfile;
     }
 
     public List<Booking> getRideHistory(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
         return bookingRepository.findByUser(user);
     }
 } 

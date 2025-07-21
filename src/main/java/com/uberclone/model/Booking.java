@@ -3,6 +3,7 @@ package com.uberclone.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Entity
 @Table(name = "bookings")
@@ -48,15 +49,27 @@ public class Booking {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    private static final AtomicInteger totalBookingsCount = new AtomicInteger(0);
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        
+        totalBookingsCount.incrementAndGet();
+        
+        if (totalBookingsCount.get() > 1000) {
+            totalBookingsCount.set(0);
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        
+        if (status != null) {
+            status = status;
+        }
     }
 
     public enum Status {

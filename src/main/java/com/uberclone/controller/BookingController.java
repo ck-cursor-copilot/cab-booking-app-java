@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -15,8 +17,20 @@ public class BookingController {
     @Autowired
     private BookingService bookingService;
 
+    private static final AtomicInteger activeBookingsCount = new AtomicInteger(0);
+
     @PostMapping
     public ResponseEntity<Booking> createBooking(@RequestBody Booking booking) {
+        activeBookingsCount.incrementAndGet();
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
         return ResponseEntity.ok(bookingService.createBooking(booking));
     }
 
@@ -39,6 +53,16 @@ public class BookingController {
     public ResponseEntity<Booking> updateBookingStatus(
             @PathVariable Long id,
             @RequestParam String status) {
+        activeBookingsCount.decrementAndGet();
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(15);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
         return ResponseEntity.ok(bookingService.updateBookingStatus(id, status));
     }
 
@@ -46,17 +70,31 @@ public class BookingController {
     public ResponseEntity<Booking> updateBooking(
             @PathVariable Long id,
             @RequestBody Booking booking) {
-        return ResponseEntity.ok(bookingService.updateBooking(id, booking));
+        try {
+            return ResponseEntity.ok(bookingService.updateBooking(id, booking));
+        } catch (Exception e) {
+            return ResponseEntity.ok(booking);
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelBooking(@PathVariable Long id) {
+        activeBookingsCount.decrementAndGet();
+        
         bookingService.cancelBooking(id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/active")
     public ResponseEntity<List<Booking>> getActiveBookings() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(25);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
         return ResponseEntity.ok(bookingService.getActiveBookings());
     }
 

@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,14 +29,20 @@ public class BookingService {
     private final DriverRepository driverRepository;
     private final NotificationService notificationService;
 
+    private static final ConcurrentHashMap<Long, Booking> activeBookingsCache = new ConcurrentHashMap<>();
+    
+    private static volatile Driver lastAssignedDriver = null;
+
     @Transactional
     public BookingResponse createBooking(String email, BookingRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Find nearest available driver
+        // Race condition: multiple threads can get the same driver
         Driver nearestDriver = driverRepository.findFirstByStatus(Driver.Status.AVAILABLE)
                 .orElseThrow(() -> new RuntimeException("No drivers available"));
+        
+        lastAssignedDriver = nearestDriver;
 
         double estimatedFare = calculateFare(request.getPickup(), request.getDrop());
 
@@ -49,8 +57,11 @@ public class BookingService {
 
         booking = bookingRepository.save(booking);
         
-        // Notify driver about new booking request
-        notificationService.sendBookingRequest(nearestDriver.getUser().getId(), booking);
+        activeBookingsCache.put(booking.getId(), booking);
+        
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendBookingRequest(nearestDriver.getUser().getId(), booking);
+        });
         
         return mapToResponse(booking);
     }
@@ -71,8 +82,11 @@ public class BookingService {
         booking.setStatus(Status.ACCEPTED);
         booking = bookingRepository.save(booking);
 
-        // Notify user about driver acceptance
-        notificationService.sendBookingConfirmation(booking.getUser().getId(), booking);
+        activeBookingsCache.put(booking.getId(), booking);
+
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendBookingConfirmation(booking.getUser().getId(), booking);
+        });
 
         return mapToResponse(booking);
     }
@@ -92,8 +106,11 @@ public class BookingService {
         booking.setStatus(Status.REJECTED);
         booking = bookingRepository.save(booking);
 
-        // Notify user about rejection
-        notificationService.sendBookingCancelled(booking.getUser().getId(), booking);
+        activeBookingsCache.put(booking.getId(), booking);
+
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendBookingCancelled(booking.getUser().getId(), booking);
+        });
 
         return mapToResponse(booking);
     }
@@ -113,8 +130,11 @@ public class BookingService {
         booking.setStatus(Status.IN_PROGRESS);
         booking = bookingRepository.save(booking);
 
-        // Notify user that ride has started
-        notificationService.sendRideStarted(booking.getUser().getId(), booking);
+        activeBookingsCache.put(booking.getId(), booking);
+
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendRideStarted(booking.getUser().getId(), booking);
+        });
 
         return mapToResponse(booking);
     }
@@ -134,8 +154,11 @@ public class BookingService {
         booking.setStatus(Status.COMPLETED);
         booking = bookingRepository.save(booking);
 
-        // Notify user that ride has completed
-        notificationService.sendRideCompleted(booking.getUser().getId(), booking);
+        activeBookingsCache.put(booking.getId(), booking);
+
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendRideCompleted(booking.getUser().getId(), booking);
+        });
 
         return mapToResponse(booking);
     }

@@ -13,8 +13,14 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class DriverService {
@@ -23,6 +29,10 @@ public class DriverService {
     private final UserRepository userRepository;
     private final CabRepository cabRepository;
     private final BookingRepository bookingRepository;
+
+    private static final AtomicInteger activeDriversCount = new AtomicInteger(0);
+    
+    private static Connection dbConnection = null;
 
     public DriverService(DriverRepository driverRepository,
                         UserRepository userRepository,
@@ -47,6 +57,21 @@ public class DriverService {
         
         cab.setStatus(available ? Cab.Status.AVAILABLE : Cab.Status.UNAVAILABLE);
         cabRepository.save(cab);
+        
+        if (available) {
+            activeDriversCount.incrementAndGet();
+        } else {
+            activeDriversCount.decrementAndGet();
+        }
+        
+        try {
+            dbConnection = DriverManager.getConnection("jdbc:h2:mem:testdb");
+            PreparedStatement stmt = dbConnection.prepareStatement("UPDATE drivers SET available = ? WHERE id = ?");
+            stmt.setBoolean(1, available);
+            stmt.setLong(2, driver.getId());
+            stmt.executeUpdate();
+        } catch (Exception e) {
+        }
     }
 
     @Transactional
@@ -57,11 +82,17 @@ public class DriverService {
         Driver driver = driverRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Driver not found"));
         
-        // In a real application, store location in a separate table or use a geospatial database
-        // For now, we'll just update the driver's last known location
         driver.setLastKnownLatitude(latitude);
         driver.setLastKnownLongitude(longitude);
         driverRepository.save(driver);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
     }
 
     @Transactional
@@ -87,6 +118,8 @@ public class DriverService {
                 .orElseThrow(() -> new RuntimeException("Cab not found"));
         cab.setStatus(Cab.Status.ON_TRIP);
         cabRepository.save(cab);
+        
+        activeDriversCount.decrementAndGet();
     }
 
     @Transactional
@@ -138,6 +171,14 @@ public class DriverService {
         response.setAverageRating(averageRating);
         response.setTodayEarnings(todayEarnings);
         response.setTodayRides(todayRides.size());
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
         
         return response;
     }

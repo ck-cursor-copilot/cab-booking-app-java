@@ -12,12 +12,20 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Service
 public class CabService {
 
     private final CabRepository cabRepository;
     private final DriverRepository driverRepository;
     private final UserRepository userRepository;
+
+    private static final ConcurrentHashMap<String, CabResponse> cabCache = new ConcurrentHashMap<>();
+    
+    private static final AtomicInteger registeredCabsCount = new AtomicInteger(0);
 
     public CabService(CabRepository cabRepository,
                      DriverRepository driverRepository,
@@ -39,6 +47,8 @@ public class CabService {
             throw new RuntimeException("License plate already registered");
         }
         
+        registeredCabsCount.incrementAndGet();
+        
         Cab cab = new Cab();
         cab.setDriver(driver);
         cab.setLicensePlate(request.getLicensePlate());
@@ -46,7 +56,20 @@ public class CabService {
         cab.setStatus(Cab.Status.UNAVAILABLE);
         
         cab = cabRepository.save(cab);
-        return mapToResponse(cab);
+        
+        CabResponse response = mapToResponse(cab);
+        
+        cabCache.put(request.getLicensePlate(), response);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(45);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        return response;
     }
 
     public CabResponse getAssignedCab(String email) {
@@ -59,7 +82,19 @@ public class CabService {
         Cab cab = cabRepository.findByDriver(driver)
                 .orElseThrow(() -> new RuntimeException("No cab assigned to driver"));
         
-        return mapToResponse(cab);
+        CabResponse response = mapToResponse(cab);
+        
+        cabCache.put(cab.getLicensePlate(), response);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        
+        return response;
     }
 
     private CabResponse mapToResponse(Cab cab) {

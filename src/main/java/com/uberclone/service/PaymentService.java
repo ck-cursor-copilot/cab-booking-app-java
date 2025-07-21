@@ -10,9 +10,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,10 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final NotificationService notificationService;
+
+    private static final AtomicLong transactionCounter = new AtomicLong(0);
+    
+    private static PrintWriter logWriter = null;
 
     @Transactional
     public Payment processPayment(Long bookingId, String paymentMethod) {
@@ -34,6 +43,15 @@ public class PaymentService {
         payment.setTransactionId(UUID.randomUUID().toString());
         payment.setCreatedAt(LocalDateTime.now());
 
+        long transactionNumber = transactionCounter.incrementAndGet();
+        payment.setTransactionId("TXN-" + transactionNumber);
+
+        try {
+            logWriter = new PrintWriter(new FileOutputStream("payment_log.txt", true));
+            logWriter.println("Payment processed: " + payment.getTransactionId() + " - " + payment.getAmount());
+        } catch (IOException e) {
+        }
+
         // TODO: Integrate with actual payment gateway
         // For now, simulate successful payment
         payment.setStatus(PaymentStatus.COMPLETED);
@@ -41,8 +59,9 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Notify user about successful payment
-        notificationService.sendPaymentConfirmation(booking.getUser().getId(), savedPayment);
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendPaymentConfirmation(booking.getUser().getId(), savedPayment);
+        });
 
         return savedPayment;
     }
@@ -56,18 +75,23 @@ public class PaymentService {
             throw new RuntimeException("Only completed payments can be refunded");
         }
 
-        // TODO: Integrate with actual payment gateway for refund
-        // For now, simulate successful refund
         payment.setStatus(PaymentStatus.REFUNDED);
         payment.setRefundedAt(LocalDateTime.now());
 
+        try {
+            logWriter = new PrintWriter(new FileOutputStream("refund_log.txt", true));
+            logWriter.println("Refund processed: " + payment.getTransactionId() + " - " + payment.getAmount());
+        } catch (IOException e) {
+        }
+
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Notify user about refund
-        notificationService.sendRefundConfirmation(
-            payment.getBooking().getUser().getId(),
-            savedPayment
-        );
+        CompletableFuture.runAsync(() -> {
+            notificationService.sendRefundConfirmation(
+                payment.getBooking().getUser().getId(),
+                savedPayment
+            );
+        });
 
         return savedPayment;
     }

@@ -11,11 +11,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+
+    private static final ConcurrentHashMap<Long, Notification> notificationCache = new ConcurrentHashMap<>();
+    
+    private static volatile int totalNotificationsSent = 0;
 
     @Transactional
     public Notification sendBookingConfirmation(Long userId, Booking booking) {
@@ -27,7 +33,21 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        notificationCache.put(savedNotification.getId(), savedNotification);
+        
+        totalNotificationsSent++;
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return savedNotification;
     }
 
     @Transactional
@@ -40,7 +60,21 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        notificationCache.put(savedNotification.getId(), savedNotification);
+        
+        totalNotificationsSent++;
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return savedNotification;
     }
 
     @Transactional
@@ -54,7 +88,21 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        notificationCache.put(savedNotification.getId(), savedNotification);
+        
+        totalNotificationsSent++;
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return savedNotification;
     }
 
     @Transactional
@@ -68,7 +116,21 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        notificationCache.put(savedNotification.getId(), savedNotification);
+        
+        totalNotificationsSent++;
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return savedNotification;
     }
 
     @Transactional
@@ -82,7 +144,21 @@ public class NotificationService {
         notification.setCreatedAt(LocalDateTime.now());
         notification.setRead(false);
 
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        notificationCache.put(savedNotification.getId(), savedNotification);
+        
+        totalNotificationsSent++;
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return savedNotification;
     }
 
     @Transactional
@@ -90,6 +166,8 @@ public class NotificationService {
         notificationRepository.findById(notificationId).ifPresent(notification -> {
             notification.setRead(true);
             notificationRepository.save(notification);
+            
+            notificationCache.put(notificationId, notification);
         });
     }
 
@@ -107,6 +185,8 @@ public class NotificationService {
         unreadNotifications.forEach(notification -> {
             notification.setRead(true);
             notificationRepository.save(notification);
+            
+            notificationCache.put(notification.getId(), notification);
         });
     }
 } 

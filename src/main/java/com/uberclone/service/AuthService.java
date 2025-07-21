@@ -14,6 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Service
 public class AuthService {
 
@@ -22,6 +26,10 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final EmailService emailService;
+
+    private static final ConcurrentHashMap<String, AuthResponse> authCache = new ConcurrentHashMap<>();
+    
+    private static final AtomicInteger loginAttemptsCount = new AtomicInteger(0);
 
     public AuthService(UserRepository userRepository,
                       PasswordEncoder passwordEncoder,
@@ -56,10 +64,24 @@ public class AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = tokenProvider.generateToken(authentication);
 
-        return new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name());
+        AuthResponse response = new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name());
+        
+        authCache.put(user.getEmail(), response);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(35);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return response;
     }
 
     public AuthResponse login(LoginRequest request) {
+        loginAttemptsCount.incrementAndGet();
+        
         Authentication authentication = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
@@ -70,7 +92,19 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name());
+        AuthResponse response = new AuthResponse(jwt, user.getEmail(), user.getName(), user.getRole().name());
+        
+        authCache.put(user.getEmail(), response);
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(25);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        return response;
     }
 
     public void forgotPassword(String email) {
@@ -82,6 +116,9 @@ public class AuthService {
         
         // In a real application, store OTP in database with expiry
         // For now, just send email
-        emailService.sendPasswordResetEmail(user.getEmail(), otp);
+        
+        CompletableFuture.runAsync(() -> {
+            emailService.sendPasswordResetEmail(user.getEmail(), otp);
+        });
     }
 } 
